@@ -438,7 +438,7 @@ export default function App() {
         }
 
         // Comments
-        const commentsRes = await db.collection('comments').get();
+        const commentsRes = await fetch('/api/comments').then(r=>r.json());
         const commentsByMemorial: Record<string, Comment[]> = {};
         (commentsRes || []).forEach((doc: any) => {
           const data = { ...doc, id: doc._id || doc.id } as Comment;
@@ -857,12 +857,11 @@ ${charMsg}
     if (!newMessage.trim() || !currentChatMemorial || !currentUser) return;
 
     try {
-      await db.collection('messages').add({
+      await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: uuidv4(), 
         memorial_id: currentChatMemorial.id,
         sender_id: currentUser.id,
         content: newMessage.trim(),
-        created_at: new Date().toISOString()
-      });
+         created_at: new Date().toISOString() }) });
       setNewMessage('');
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -872,7 +871,7 @@ ${charMsg}
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除这条记录吗？')) return;
     try {
-      await db.collection('memorials').doc(id).remove();
+      await fetch(`/api/memorials/${id}`, { method: 'DELETE' });
     } catch (error) {
       console.error('Delete failed:', error);
       alert('删除失败');
@@ -1097,9 +1096,9 @@ ${charMsg}
     const hasFlowered = flowers.includes(currentUser.id);
     try {
       if (hasFlowered) {
-        await db.collection('forum_posts').doc(postId).update({ flowers: flowers.filter((id: string) => id !== currentUser.id) });
+        await fetch(`/api/forum_posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flowers: flowers.filter((id: string) => id !== currentUser.id) }) });
       } else {
-        await db.collection('forum_posts').doc(postId).update({ flowers: [...flowers, currentUser.id] });
+        await fetch(`/api/forum_posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flowers: [...flowers, currentUser.id] }) });
       }
     } catch (err) { console.error(err); }
   };
@@ -1110,7 +1109,7 @@ ${charMsg}
     if (!post) return;
     const existing = post.forum_comments || [];
     try {
-      await db.collection('forum_posts').doc(postId).update({
+      await fetch(`/api/forum_posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         forum_comments: [...existing, {
           user_id: currentUser.id,
           user_name: currentUser.name,
@@ -1118,7 +1117,7 @@ ${charMsg}
           content: forumCommentInput.trim(),
           created_at: new Date().toISOString()
         }]
-      });
+      }) });
       setForumCommentInput('');
       setActiveCommentPostId(null);
     } catch (err) { console.error(err); }
@@ -1165,10 +1164,10 @@ ${charMsg}
                   <div className="flex items-center gap-1 bg-red-50 p-1 rounded-full border border-red-100 shadow-sm">
                     <button onClick={async () => {
                       try {
-                        await db.collection('forum_posts').doc(post.id).remove();
+                        await fetch(`/api/forum_posts/${post.id}`, { method: 'DELETE' });
                       } catch (e) {
                         try {
-                          await db.collection('forum_posts').doc(post.id).update({ content: '[该动态已被删除]', forum_comments: [], flowers: [], _deleted: true });
+                          await fetch(`/api/forum_posts/${post.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '[该动态已被删除]', forum_comments: [], flowers: [], _deleted: true }) });
                         } catch (e2) { console.error(e2); }
                       }
                       setPendingDeletePostId(null);
@@ -1417,7 +1416,7 @@ ${charMsg}
                     <div className="flex items-center gap-2">
                       <button onClick={async () => {
                         try {
-                          const res = await db.collection('memorials').where({ _id: m.id }).update({ status: 'completed', completed_at: new Date().toISOString() });
+                          const res = await fetch(`/api/memorials/${m.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', completed_at: new Date().toISOString() }) });
                           if (res.updated === 0) {
                             await fetch(`/api/memorials/${m.id}`, {
         method: 'PUT',
@@ -1967,7 +1966,7 @@ ${charMsg}
                                 if (!url) return;
                                 try {
                                   const existing = (m as any).progress_images || [];
-                                  await db.collection('memorials').doc(m.id).update({ progress_images: [...existing, url] });
+                                  await fetch(`/api/memorials/${m.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ progress_images: [...existing, url] }) });
                                 } catch (e) { console.error(e); }
                               }} className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-medium hover:bg-sky-700 transition-colors shadow-sm">
                                 📸 提交进度图片
@@ -2062,13 +2061,12 @@ ${charMsg}
                 e.preventDefault();
                 if (!inlineChatInput.trim() || !inlineChatMemorial || !currentUser) return;
                 try {
-                  await db.collection('messages').add({
+                  await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: uuidv4(), 
                     memorial_id: inlineChatMemorial.id,
                     sender_name: currentUser.name,
                     sender_id: currentUser.id,
                     content: inlineChatInput.trim(),
-                    created_at: new Date().toISOString()
-                  });
+                     created_at: new Date().toISOString() }) });
                   setInlineChatInput('');
                   const res = await fetch(`/api/messages?memorial_id=${inlineChatMemorial.id}`).then(r => r.json());
           setInlineChatMessages((res || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Message)));
