@@ -80,7 +80,7 @@ const isQingmingPeriod = () => {
 };
 
 
-const UserProfileSettings = ({ currentUser, setCurrentUser, db }: any) => {
+const UserProfileSettings = ({ currentUser, setCurrentUser }: any) => {
   const [name, setName] = React.useState(currentUser?.name || '');
   const [avatar, setAvatar] = React.useState(currentUser?.avatar || '');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -1996,7 +1996,7 @@ ${charMsg}
                   })()
                 ) : (
                   /* ========= USER PROFILE VIEW ========= */
-                  <UserProfileSettings currentUser={currentUser} setCurrentUser={setCurrentUser} db={db} />
+                  <UserProfileSettings currentUser={currentUser} setCurrentUser={setCurrentUser} />
                 )}
               </div>
             </motion.div>
