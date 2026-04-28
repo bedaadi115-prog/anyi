@@ -872,12 +872,13 @@ ${charMsg}
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这条记录吗？')) return;
+    if (!confirm('确定要撤销这条记录吗？撤销后将无法恢复。')) return;
     try {
       await fetch(`/api/memorials/${id}`, { method: 'DELETE' });
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Delete failed:', error);
-      alert('删除失败');
+      alert('撤销失败');
     }
   };
 
@@ -1330,7 +1331,10 @@ ${charMsg}
               <div className="px-6 py-5 border-b border-white/20 bg-white/20">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[15px] font-bold text-[#2c2c2c] tracking-tight">{m.name || (m.type === 'festival' ? '节日祭祀' : '个人追思')}</span>
-                  <span className="text-[11px] text-[#2c2c2c]/40 font-bold uppercase tracking-widest">{formatTime(m.created_at)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-[#2c2c2c]/40 font-bold uppercase tracking-widest">{formatTime(m.created_at)}</span>
+                    <button onClick={() => handleDelete(m.id)} className="text-[11px] px-2 py-1 bg-red-50 text-red-500 rounded-md hover:bg-red-100 font-bold transition-colors flex items-center gap-1"><Trash2 className="w-3 h-3" />撤销</button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   {[
