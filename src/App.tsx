@@ -289,6 +289,7 @@ export default function App() {
 
   const [memorials, setMemorials] = useState<Memorial[]>([]);
   const [userMemorials, setUserMemorials] = useState<Memorial[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [adminMemorials, setAdminMemorials] = useState<Memorial[]>([]);
   const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
   const [forumInput, setForumInput] = useState('');
@@ -464,7 +465,7 @@ export default function App() {
     fetchData();
     const interval = setInterval(fetchData, 10000); // 每10秒刷新一次
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser, refreshTrigger]);
 
   useEffect(() => {
     if (chatModalOpen && currentChatMemorial) {
@@ -546,9 +547,9 @@ export default function App() {
           setSubmitting(false);
           return;
         }
-        localStorage.setItem('yjas_uid', existingUser._id);
+        localStorage.setItem('yjas_uid', existingUser.id);
         setCurrentUser({
-          id: existingUser._id,
+          id: existingUser.id,
           email: existingUser.email,
           name: existingUser.name,
           avatar: existingUser.avatar || '',
@@ -717,6 +718,7 @@ ${charMsg}
 
       setPersonMessage(''); setPersonImageUrl(''); setPersonName(''); setPersonRelation(''); setPersonBirthDate(''); setPersonDeathDate('');
       setIsPublishModalOpen(false);
+      setRefreshTrigger(prev => prev + 1);
 
       if (isQingming) {
         setPendingMemorialId(docRef.id);
@@ -758,6 +760,7 @@ ${charMsg}
 
       setFestivalMessage(''); setFestivalImageUrl(''); setFestivalName(''); setFestivalEventDate(''); setFestivalPlan(50); setFestivalRemarks('');
       setIsPublishModalOpen(false);
+      setRefreshTrigger(prev => prev + 1);
 
       if (isQingming) {
         setPendingMemorialId(docRef.id);
