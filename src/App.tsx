@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Flower2, Plus, X, Calendar, User, Heart, Image as ImageIcon, Flame, LogOut, LogIn, CheckCircle, Clock, QrCode, MapPin, Shield, MessageCircle, Send, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow, isWithinInterval, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { auth, db, app } from './tcb';
+import { v4 as uuidv4 } from 'uuid';
 
 // Types
 interface AppUser {
@@ -92,10 +92,11 @@ const UserProfileSettings = ({ currentUser, setCurrentUser, db }: any) => {
     setMessage('');
     try {
       const updateData = { name: name.trim(), avatar: avatar.trim() };
-      const res = await db.collection('users').where({ _id: currentUser.id }).update(updateData);
-      if (res.updated === 0) {
-        await db.collection('users').doc(currentUser.id).update(updateData);
-      }
+      await fetch(`/api/users/${currentUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
       setCurrentUser((prev: any) => ({ ...prev, ...updateData }));
       setMessage('保存成功！');
     } catch (e: any) {
@@ -131,13 +132,28 @@ const UserProfileSettings = ({ currentUser, setCurrentUser, db }: any) => {
         </div>
         <div>
           <label className="block text-xs font-bold text-[#5A5A40] mb-1.5 ml-1">头像图片地址 (URL)</label>
-          <input
-            type="text"
-            value={avatar}
-            onChange={e => setAvatar(e.target.value)}
-            className="w-full bg-white/50 border border-white/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#5A5A40]/30 transition-all placeholder-[#2c2c2c]/30"
-            placeholder="https://example.com/avatar.jpg"
-          />
+          <div className="flex gap-2 items-center">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append('file', file);
+                setIsSubmitting(true);
+                try {
+                  const res = await fetch('/api/upload', { method: 'POST', body: formData }).then(r => r.json());
+                  if (res.url) setAvatar(res.url);
+                } catch (err) {
+                  setMessage('上传失败');
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="w-full bg-white/50 border border-white/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5A5A40]/30 transition-all placeholder-[#2c2c2c]/30"
+            />
+          </div>
         </div>
       </div>
 
@@ -366,16 +382,13 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const loginState = await auth.getLoginState();
-        if (!loginState) {
-          await auth.anonymousAuthProvider().signIn();
-        }
+        
 
         const localUid = localStorage.getItem('yjas_uid');
         if (localUid) {
-          const res = await db.collection('users').doc(localUid).get();
-          if (res.data && res.data.length > 0) {
-            const userDoc = res.data[0];
+          const res = await fetch(`/api/users/${localUid}`).then(r => r.json());
+          if (res && res.length > 0) {
+            const userDoc = res[0];
             setCurrentUser({
               id: localUid,
               email: userDoc.email || '',
@@ -406,28 +419,28 @@ export default function App() {
     const fetchData = async () => {
       try {
         // Forum posts
-        const forumRes = await db.collection('forum_posts').orderBy('created_at', 'desc').limit(100).get();
-        setForumPosts((forumRes.data || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as ForumPost)));
+        const forumRes = await fetch('/api/forum_posts').then(r => r.json());
+        setForumPosts((forumRes || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as ForumPost)));
 
         // Public memorials
-        const memRes = await db.collection('memorials').where({ status: db.command.in(['accepted', 'completed']) }).orderBy('created_at', 'desc').limit(50).get();
-        setMemorials((memRes.data || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Memorial)));
+        const memRes = await fetch('/api/memorials?status=accepted,completed').then(r => r.json());
+        setMemorials((memRes || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Memorial)));
         setIsLoading(false);
 
         // User memorials
-        const userMemRes = await db.collection('memorials').where({ author_id: currentUser.id }).orderBy('created_at', 'desc').get();
-        setUserMemorials((userMemRes.data || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Memorial)));
+        const userMemRes = await fetch(`/api/memorials?author_id=${currentUser.id}`).then(r => r.json());
+        setUserMemorials((userMemRes || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Memorial)));
 
         // Admin memorials
         if (currentUser.role === 'admin') {
-          const adminMemRes = await db.collection('memorials').orderBy('created_at', 'desc').get();
-          setAdminMemorials((adminMemRes.data || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Memorial)));
+          const adminMemRes = await fetch('/api/memorials').then(r => r.json());
+          setAdminMemorials((adminMemRes || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Memorial)));
         }
 
         // Comments
         const commentsRes = await db.collection('comments').get();
         const commentsByMemorial: Record<string, Comment[]> = {};
-        (commentsRes.data || []).forEach((doc: any) => {
+        (commentsRes || []).forEach((doc: any) => {
           const data = { ...doc, id: doc._id || doc.id } as Comment;
           if (!commentsByMemorial[data.memorial_id]) commentsByMemorial[data.memorial_id] = [];
           commentsByMemorial[data.memorial_id].push(data);
@@ -457,8 +470,8 @@ export default function App() {
     if (chatModalOpen && currentChatMemorial) {
       const fetchMessages = async () => {
         try {
-          const res = await db.collection('messages').where({ memorial_id: currentChatMemorial.id }).orderBy('created_at', 'asc').get();
-          setMessages((res.data || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Message)));
+          const res = await fetch(`/api/messages?memorial_id=${currentChatMemorial.id}`).then(r => r.json());
+          setMessages((res || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Message)));
         } catch (err) {
           console.error('加载消息失败:', err);
         }
@@ -474,8 +487,8 @@ export default function App() {
     if (inlineChatMemorial) {
       const fetchInlineMessages = async () => {
         try {
-          const res = await db.collection('messages').where({ memorial_id: inlineChatMemorial.id }).orderBy('created_at', 'asc').get();
-          setInlineChatMessages((res.data || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Message)));
+          const res = await fetch(`/api/messages?memorial_id=${inlineChatMemorial.id}`).then(r => r.json());
+          setInlineChatMessages((res || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Message)));
         } catch (err) {
           console.error('加载内联消息失败:', err);
         }
@@ -519,8 +532,8 @@ export default function App() {
     const email = `${uName.trim()}@system.local`;
 
     try {
-      const usersRes = await db.collection('users').where({ username: uName.trim() }).get();
-      const existingUser = usersRes.data[0];
+      const usersRes = await fetch(`/api/users?username=${uName.trim()}`).then(r => r.json());
+      const existingUser = usersRes[0];
 
       if (mode === 'login') {
         if (!existingUser || existingUser.password !== uPass) {
@@ -551,14 +564,21 @@ export default function App() {
         // 预设管理员账号：用户名为 admin 时自动分配管理员权限
         const assignedRole = (uName.trim() === 'admin') ? 'admin' : 'user';
 
-        const res = await db.collection('users').add({
-          username: uName.trim(),
-          password: uPass,
-          name: uName.trim(),
-          email: email,
-          role: assignedRole,
-          created_at: db.serverDate()
+        const uid = uuidv4();
+        await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: uid,
+            username: uName.trim(),
+            password: uPass,
+            name: uName.trim(),
+            email: email,
+            role: assignedRole,
+            created_at: new Date().toISOString()
+          })
         });
+        const res = { id: uid };
 
         localStorage.setItem('yjas_uid', res.id);
         setCurrentUser({
@@ -588,13 +608,18 @@ export default function App() {
 
     setIsForumSubmitting(true);
     try {
-      await db.collection('forum_posts').add({
-        user_id: currentUser.id,
-        content: forumInput.trim(),
-        created_at: db.serverDate(),
-        user_name: currentUser.name,
-        user_role: currentUser.role,
-        user_avatar: currentUser.avatar || ''
+      await fetch('/api/forum_posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: uuidv4(),
+          user_id: currentUser.id,
+          content: forumInput.trim(),
+          created_at: new Date().toISOString(),
+          user_name: currentUser.name,
+          user_role: currentUser.role,
+          user_avatar: currentUser.avatar || ''
+        })
       });
       setForumInput('');
     } catch (error) {
@@ -670,7 +695,11 @@ ${charMsg}
     setIsPersonSubmitting(true);
 
     try {
-      const docRef = await db.collection('memorials').add({
+      const uid = uuidv4();
+      await fetch('/api/memorials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
         name: personName,
         relation: personRelation,
         birth_date: personBirthDate,
@@ -679,10 +708,12 @@ ${charMsg}
         image_url: personImageUrl,
         author_name: currentUser.name,
         author_id: currentUser.id,
-        created_at: db.serverDate(),
+        created_at: new Date().toISOString(),
         type: 'person',
         status: isQingming ? 'pending_payment' : 'accepted'
+      , id: uid})
       });
+      const docRef = { id: uid };
 
       setPersonMessage(''); setPersonImageUrl(''); setPersonName(''); setPersonRelation(''); setPersonBirthDate(''); setPersonDeathDate('');
       setIsPublishModalOpen(false);
@@ -705,7 +736,11 @@ ${charMsg}
     setIsFestivalSubmitting(true);
 
     try {
-      const docRef = await db.collection('memorials').add({
+      const uid = uuidv4();
+      await fetch('/api/memorials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
         name: festivalName,
         event_date: festivalEventDate,
         message: festivalMessage,
@@ -714,10 +749,12 @@ ${charMsg}
         remarks: festivalRemarks,
         author_name: currentUser.name,
         author_id: currentUser.id,
-        created_at: db.serverDate(),
+        created_at: new Date().toISOString(),
         type: 'festival',
         status: 'pending_payment'
+      , id: uid})
       });
+      const docRef = { id: uid };
 
       setFestivalMessage(''); setFestivalImageUrl(''); setFestivalName(''); setFestivalEventDate(''); setFestivalPlan(50); setFestivalRemarks('');
       setIsPublishModalOpen(false);
@@ -740,12 +777,17 @@ ${charMsg}
 
     setSubmittingCommentId(memorialId);
     try {
-      await db.collection('comments').add({
-        memorial_id: memorialId,
-        user_id: currentUser.id,
-        content: content.trim(),
-        created_at: db.serverDate(),
-        user_name: currentUser.name
+      await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: uuidv4(),
+          memorial_id: memorialId,
+          user_id: currentUser.id,
+          content: content.trim(),
+          created_at: new Date().toISOString(),
+          user_name: currentUser.name
+        })
       });
       setCommentInputs(prev => ({ ...prev, [memorialId]: '' }));
     } catch (error) {
@@ -758,7 +800,11 @@ ${charMsg}
   const handlePaymentComplete = async () => {
     if (!pendingMemorialId) return;
     try {
-      await db.collection('memorials').doc(pendingMemorialId).update({ status: 'pending_order' });
+      await fetch(`/api/memorials/${pendingMemorialId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'pending_order' })
+      });
       setPaymentModalOpen(false);
       setPendingMemorialId(null);
       alert('支付已提交，等待管理员接单发布！');
@@ -769,7 +815,11 @@ ${charMsg}
 
   const handleAcceptOrder = async (id: string) => {
     try {
-      await db.collection('memorials').doc(id).update({ status: 'accepted' });
+      await fetch(`/api/memorials/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'accepted' })
+      });
     } catch (error) {
       console.error('Accept failed:', error);
     }
@@ -779,12 +829,16 @@ ${charMsg}
     e.preventDefault();
     if (!pendingMemorialId) return;
     try {
-      await db.collection('memorials').doc(pendingMemorialId).update({
+      await fetch(`/api/memorials/${pendingMemorialId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
         status: 'completed',
         completion_time: completeData.time,
         completion_location: completeData.location,
         completion_images: completeData.images,
         completion_remarks: completeData.remarks
+      })
       });
       setCompleteModalOpen(false);
       setPendingMemorialId(null);
@@ -807,7 +861,7 @@ ${charMsg}
         memorial_id: currentChatMemorial.id,
         sender_id: currentUser.id,
         content: newMessage.trim(),
-        created_at: db.serverDate()
+        created_at: new Date().toISOString()
       });
       setNewMessage('');
     } catch (error) {
@@ -1365,7 +1419,11 @@ ${charMsg}
                         try {
                           const res = await db.collection('memorials').where({ _id: m.id }).update({ status: 'completed', completed_at: new Date().toISOString() });
                           if (res.updated === 0) {
-                            await db.collection('memorials').doc(m.id).update({ status: 'completed', completed_at: new Date().toISOString() });
+                            await fetch(`/api/memorials/${m.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed', completed_at: new Date().toISOString() })
+      });
                           }
                         } catch (e) {
                           console.error('验收失败:', e);
@@ -1880,7 +1938,11 @@ ${charMsg}
                         {/* Order Actions */}
                         <div className="px-6 py-4 bg-[#f5f5f0]/50 border-t border-[#2c2c2c]/5 flex flex-wrap gap-2">
                           {m.status === 'pending_payment' && (
-                            <button onClick={async () => { try { await db.collection('memorials').doc(m.id).update({ status: 'pending_order' }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-colors shadow-sm">
+                            <button onClick={async () => { try { await fetch(`/api/memorials/${m.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'pending_order' })
+      }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-colors shadow-sm">
                               <CheckCircle className="w-3.5 h-3.5" /> 确认已付费
                             </button>
                           )}
@@ -1890,7 +1952,11 @@ ${charMsg}
                             </button>
                           )}
                           {m.status === 'accepted' && (
-                            <button onClick={async () => { try { await db.collection('memorials').doc(m.id).update({ status: 'in_progress' }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm">
+                            <button onClick={async () => { try { await fetch(`/api/memorials/${m.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' })
+      }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm">
                               <Clock className="w-3.5 h-3.5" /> 开始执行
                             </button>
                           )}
@@ -1906,7 +1972,11 @@ ${charMsg}
                               }} className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-medium hover:bg-sky-700 transition-colors shadow-sm">
                                 📸 提交进度图片
                               </button>
-                              <button onClick={async () => { try { await db.collection('memorials').doc(m.id).update({ status: 'pending_acceptance' }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-medium hover:bg-purple-700 transition-colors shadow-sm">
+                              <button onClick={async () => { try { await fetch(`/api/memorials/${m.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'pending_acceptance' })
+      }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-medium hover:bg-purple-700 transition-colors shadow-sm">
                                 <CheckCircle className="w-3.5 h-3.5" /> 提交验收
                               </button>
                             </>
@@ -1997,11 +2067,11 @@ ${charMsg}
                     sender_name: currentUser.name,
                     sender_id: currentUser.id,
                     content: inlineChatInput.trim(),
-                    created_at: db.serverDate()
+                    created_at: new Date().toISOString()
                   });
                   setInlineChatInput('');
-                  const res = await db.collection('messages').where({ memorial_id: inlineChatMemorial.id }).orderBy('created_at', 'asc').get();
-                  setInlineChatMessages((res.data || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Message)));
+                  const res = await fetch(`/api/messages?memorial_id=${inlineChatMemorial.id}`).then(r => r.json());
+          setInlineChatMessages((res || []).map((doc: any) => ({ ...doc, id: doc._id || doc.id } as Message)));
                 } catch (err) {
                   console.error('发送失败:', err);
                 }
