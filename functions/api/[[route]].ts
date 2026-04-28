@@ -47,7 +47,7 @@ app.get('/users', async (c) => {
   const { DB } = c.env as any;
   const username = c.req.query('username');
   if (username) {
-    const { results } = await DB.prepare('SELECT * FROM users WHERE username = ?').bind(username).all();
+    const { results } = await DB.prepare('SELECT * FROM users WHERE username = ?').bind(...[username].map(v => v === undefined ? null : v)).all();
     return c.json(results);
   }
   return c.json([]);
@@ -56,7 +56,7 @@ app.get('/users', async (c) => {
 app.get('/users/:id', async (c) => {
   const { DB } = c.env as any;
   const id = c.req.param('id');
-  const { results } = await DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).all();
+  const { results } = await DB.prepare('SELECT * FROM users WHERE id = ?').bind(...[id].map(v => v === undefined ? null : v)).all();
   return c.json(results);
 });
 
@@ -65,7 +65,7 @@ app.post('/users', async (c) => {
   const body = await c.req.json();
   const { username, password, name, email, role, id } = body;
   await DB.prepare('INSERT INTO users (id, username, password, name, email, role) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, username, password, name, email, role).run();
+    .bind(...[id, username, password, name, email, role].map(v => v === undefined ? null : v)).run();
   return c.json({ id });
 });
 
@@ -74,7 +74,7 @@ app.put('/users/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
   const { name, avatar } = body;
-  await DB.prepare('UPDATE users SET name = ?, avatar = ? WHERE id = ?').bind(name, avatar, id).run();
+  await DB.prepare('UPDATE users SET name = ?, avatar = ? WHERE id = ?').bind(...[name, avatar, id].map(v => v === undefined ? null : v)).run();
   return c.json({ success: true });
 });
 
@@ -90,7 +90,7 @@ app.post('/forum_posts', async (c) => {
   const body = await c.req.json();
   const { id, user_id, content, user_name, user_role, user_avatar } = body;
   await DB.prepare('INSERT INTO forum_posts (id, user_id, content, user_name, user_role, user_avatar) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(id, user_id, content, user_name, user_role, user_avatar).run();
+    .bind(...[id, user_id, content, user_name, user_role, user_avatar].map(v => v === undefined ? null : v)).run();
   return c.json({ id });
 });
 
@@ -101,7 +101,7 @@ app.get('/memorials', async (c) => {
   const status = c.req.query('status');
   
   if (author_id) {
-    const { results } = await DB.prepare('SELECT * FROM memorials WHERE author_id = ? ORDER BY created_at DESC').bind(author_id).all();
+    const { results } = await DB.prepare('SELECT * FROM memorials WHERE author_id = ? ORDER BY created_at DESC').bind(...[author_id].map(v => v === undefined ? null : v)).all();
     return c.json(results);
   }
   
@@ -120,7 +120,7 @@ app.post('/memorials', async (c) => {
   const { id, name, relation, birth_date, death_date, message, image_url, author_name, author_id, type, status, event_date, plan, remarks } = body;
   
   await DB.prepare('INSERT INTO memorials (id, name, relation, birth_date, death_date, message, image_url, author_name, author_id, type, status, event_date, plan, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(id, name, relation, birth_date, death_date, message, image_url, author_name, author_id, type, status, event_date, plan, remarks).run();
+    .bind(...[id, name, relation, birth_date, death_date, message, image_url, author_name, author_id, type, status, event_date, plan, remarks].map(v => v === undefined ? null : v)).run();
   return c.json({ id });
 });
 
@@ -132,9 +132,9 @@ app.put('/memorials/:id', async (c) => {
   if (body.status === 'completed') {
     const { completion_time, completion_location, completion_images, completion_remarks } = body;
     await DB.prepare('UPDATE memorials SET status = ?, completion_time = ?, completion_location = ?, completion_images = ?, completion_remarks = ? WHERE id = ?')
-      .bind(body.status, completion_time, completion_location, completion_images, completion_remarks, id).run();
+      .bind(...[body.status, completion_time, completion_location, completion_images, completion_remarks, id].map(v => v === undefined ? null : v)).run();
   } else {
-    await DB.prepare('UPDATE memorials SET status = ? WHERE id = ?').bind(body.status, id).run();
+    await DB.prepare('UPDATE memorials SET status = ? WHERE id = ?').bind(...[body.status, id].map(v => v === undefined ? null : v)).run();
   }
   
   return c.json({ success: true });
@@ -152,7 +152,7 @@ app.post('/comments', async (c) => {
   const body = await c.req.json();
   const { id, memorial_id, user_id, content, user_name } = body;
   await DB.prepare('INSERT INTO comments (id, memorial_id, user_id, content, user_name) VALUES (?, ?, ?, ?, ?)')
-    .bind(id, memorial_id, user_id, content, user_name).run();
+    .bind(...[id, memorial_id, user_id, content, user_name].map(v => v === undefined ? null : v)).run();
   return c.json({ id });
 });
 
@@ -161,7 +161,7 @@ app.get('/messages', async (c) => {
   const { DB } = c.env as any;
   const memorial_id = c.req.query('memorial_id');
   if (memorial_id) {
-    const { results } = await DB.prepare('SELECT * FROM messages WHERE memorial_id = ? ORDER BY created_at ASC').bind(memorial_id).all();
+    const { results } = await DB.prepare('SELECT * FROM messages WHERE memorial_id = ? ORDER BY created_at ASC').bind(...[memorial_id].map(v => v === undefined ? null : v)).all();
     return c.json(results);
   }
   return c.json([]);
@@ -172,7 +172,7 @@ app.post('/messages', async (c) => {
   const body = await c.req.json();
   const { id, memorial_id, sender_id, content } = body;
   await DB.prepare('INSERT INTO messages (id, memorial_id, sender_id, content) VALUES (?, ?, ?, ?)')
-    .bind(id, memorial_id, sender_id, content).run();
+    .bind(...[id, memorial_id, sender_id, content].map(v => v === undefined ? null : v)).run();
   return c.json({ id });
 });
 
