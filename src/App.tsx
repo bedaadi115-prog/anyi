@@ -97,6 +97,7 @@ const UserProfileSettings = ({ currentUser, setCurrentUser }: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
+setRefreshTrigger(prev => prev + 1);
       setCurrentUser((prev: any) => ({ ...prev, ...updateData }));
       setMessage('保存成功！');
     } catch (e: any) {
@@ -808,6 +809,7 @@ ${charMsg}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending_order' })
       });
+setRefreshTrigger(prev => prev + 1);
       setPaymentModalOpen(false);
       setPendingMemorialId(null);
       alert('支付已提交，等待管理员接单发布！');
@@ -823,6 +825,7 @@ ${charMsg}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'accepted' })
       });
+setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Accept failed:', error);
     }
@@ -843,6 +846,7 @@ ${charMsg}
         completion_remarks: completeData.remarks
       })
       });
+setRefreshTrigger(prev => prev + 1);
       setCompleteModalOpen(false);
       setPendingMemorialId(null);
     } catch (error) {
@@ -1101,8 +1105,10 @@ ${charMsg}
     try {
       if (hasFlowered) {
         await fetch(`/api/forum_posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flowers: flowers.filter((id: string) => id !== currentUser.id) }) });
+setRefreshTrigger(prev => prev + 1);
       } else {
         await fetch(`/api/forum_posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flowers: [...flowers, currentUser.id] }) });
+setRefreshTrigger(prev => prev + 1);
       }
     } catch (err) { console.error(err); }
   };
@@ -1122,6 +1128,7 @@ ${charMsg}
           created_at: new Date().toISOString()
         }]
       }) });
+setRefreshTrigger(prev => prev + 1);
       setForumCommentInput('');
       setActiveCommentPostId(null);
     } catch (err) { console.error(err); }
@@ -1172,6 +1179,7 @@ ${charMsg}
                       } catch (e) {
                         try {
                           await fetch(`/api/forum_posts/${post.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '[该动态已被删除]', forum_comments: [], flowers: [], _deleted: true }) });
+setRefreshTrigger(prev => prev + 1);
                         } catch (e2) { console.error(e2); }
                       }
                       setPendingDeletePostId(null);
@@ -1424,12 +1432,14 @@ ${charMsg}
                       <button onClick={async () => {
                         try {
                           const res = await fetch(`/api/memorials/${m.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', completed_at: new Date().toISOString() }) });
+setRefreshTrigger(prev => prev + 1);
                           if (res.updated === 0) {
                             await fetch(`/api/memorials/${m.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'completed', completed_at: new Date().toISOString() })
       });
+setRefreshTrigger(prev => prev + 1);
                           }
                         } catch (e) {
                           console.error('验收失败:', e);
@@ -1948,7 +1958,8 @@ ${charMsg}
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending_order' })
-      }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-colors shadow-sm">
+      });
+setRefreshTrigger(prev => prev + 1); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-colors shadow-sm">
                               <CheckCircle className="w-3.5 h-3.5" /> 确认已付费
                             </button>
                           )}
@@ -1962,7 +1973,8 @@ ${charMsg}
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'in_progress' })
-      }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm">
+      });
+setRefreshTrigger(prev => prev + 1); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm">
                               <Clock className="w-3.5 h-3.5" /> 开始执行
                             </button>
                           )}
@@ -1974,6 +1986,7 @@ ${charMsg}
                                 try {
                                   const existing = (m as any).progress_images || [];
                                   await fetch(`/api/memorials/${m.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ progress_images: [...existing, url] }) });
+setRefreshTrigger(prev => prev + 1);
                                 } catch (e) { console.error(e); }
                               }} className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 text-white rounded-xl text-xs font-medium hover:bg-sky-700 transition-colors shadow-sm">
                                 📸 提交进度图片
@@ -1982,7 +1995,8 @@ ${charMsg}
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending_acceptance' })
-      }); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-medium hover:bg-purple-700 transition-colors shadow-sm">
+      });
+setRefreshTrigger(prev => prev + 1); } catch (e) { console.error(e); } }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-medium hover:bg-purple-700 transition-colors shadow-sm">
                                 <CheckCircle className="w-3.5 h-3.5" /> 提交验收
                               </button>
                             </>
