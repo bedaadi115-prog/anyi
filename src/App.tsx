@@ -29,7 +29,6 @@ interface Message {
   sender_id: string;
   content: string;
   created_at: any;
-  sender_name?: string;
 }
 
 interface ForumPost {
@@ -57,7 +56,7 @@ interface Memorial {
   created_at: any;
   type: 'person' | 'festival';
   event_date?: string;
-  status: 'pending_payment' | 'pending_order' | 'accepted' | 'in_progress' | 'completed' | 'pending_acceptance';
+  status: 'pending_payment' | 'pending_order' | 'accepted' | 'in_progress' | 'completed';
   location?: string;
   remarks?: string;
   completion_time?: string;
@@ -317,6 +316,8 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [adminAuthError, setAdminAuthError] = useState('');
   const [isAdminSubmitting, setIsAdminSubmitting] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
 
   // Payment state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -382,6 +383,8 @@ export default function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        
+
         const localUid = localStorage.getItem('yjas_uid');
         if (localUid) {
           const res = await fetch(`/api/users/${localUid}`).then(r => r.json());
@@ -620,7 +623,6 @@ export default function App() {
         })
       });
       setForumInput('');
-      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Failed to post to forum:', error);
     } finally {
@@ -709,9 +711,8 @@ ${charMsg}
         author_id: currentUser.id,
         created_at: new Date().toISOString(),
         type: 'person',
-        status: isQingming ? 'pending_payment' : 'accepted',
-        id: uid
-      })
+        status: isQingming ? 'pending_payment' : 'accepted'
+      , id: uid})
       });
       const docRef = { id: uid };
 
@@ -752,9 +753,8 @@ ${charMsg}
         author_id: currentUser.id,
         created_at: new Date().toISOString(),
         type: 'festival',
-        status: 'pending_payment',
-        id: uid
-      })
+        status: 'pending_payment'
+      , id: uid})
       });
       const docRef = { id: uid };
 
@@ -793,7 +793,6 @@ ${charMsg}
         })
       });
       setCommentInputs(prev => ({ ...prev, [memorialId]: '' }));
-      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Failed to post comment:', error);
     } finally {
@@ -812,7 +811,6 @@ ${charMsg}
       setPaymentModalOpen(false);
       setPendingMemorialId(null);
       alert('支付已提交，等待管理员接单发布！');
-      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Payment failed:', error);
     }
@@ -825,7 +823,6 @@ ${charMsg}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'accepted' })
       });
-      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Accept failed:', error);
     }
@@ -848,7 +845,6 @@ ${charMsg}
       });
       setCompleteModalOpen(false);
       setPendingMemorialId(null);
-      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Complete failed:', error);
     }
@@ -867,7 +863,6 @@ ${charMsg}
       await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: uuidv4(), 
         memorial_id: currentChatMemorial.id,
         sender_id: currentUser.id,
-        sender_name: currentUser.name,
         content: newMessage.trim(),
          created_at: new Date().toISOString() }) });
       setNewMessage('');
@@ -1109,7 +1104,6 @@ ${charMsg}
       } else {
         await fetch(`/api/forum_posts/${postId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ flowers: [...flowers, currentUser.id] }) });
       }
-      setRefreshTrigger(prev => prev + 1);
     } catch (err) { console.error(err); }
   };
 
@@ -1130,7 +1124,6 @@ ${charMsg}
       }) });
       setForumCommentInput('');
       setActiveCommentPostId(null);
-      setRefreshTrigger(prev => prev + 1);
     } catch (err) { console.error(err); }
   };
 
@@ -1176,11 +1169,9 @@ ${charMsg}
                     <button onClick={async () => {
                       try {
                         await fetch(`/api/forum_posts/${post.id}`, { method: 'DELETE' });
-                        setRefreshTrigger(prev => prev + 1);
                       } catch (e) {
                         try {
                           await fetch(`/api/forum_posts/${post.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '[该动态已被删除]', forum_comments: [], flowers: [], _deleted: true }) });
-                          setRefreshTrigger(prev => prev + 1);
                         } catch (e2) { console.error(e2); }
                       }
                       setPendingDeletePostId(null);
@@ -1345,6 +1336,561 @@ ${charMsg}
                     <button onClick={() => handleDelete(m.id)} className="text-[11px] px-2 py-1 bg-red-50 text-red-500 rounded-md hover:bg-red-100 font-bold transition-colors flex items-center gap-1"><Trash2 className="w-3 h-3" />撤销</button>
                   </div>
                 </div>
+                <div className="flex items-center gap-1">
+                  {[
+                    { key: 'pending_payment', label: '待付费' },
+                    { key: 'pending_order', label: '待审核' },
+                    { key: 'accepted', label: '已接单' },
+                    { key: 'in_progress', label: '进行中' },
+                    { key: 'pending_acceptance', label: '待验收' },
+                    { key: 'completed', label: '已完成' }
+                  ].map((step, i, arr) => {
+                    const statusOrder = ['pending_payment', 'pending_order', 'accepted', 'in_progress', 'pending_acceptance', 'completed'];
+                    const currentIdx = statusOrder.indexOf(m.status);
+                    const stepIdx = statusOrder.indexOf(step.key);
+                    const isActive = stepIdx <= currentIdx;
+                    const isCurrent = step.key === m.status;
+                    return (
+                      <React.Fragment key={step.key}>
+                        <div className={`flex flex-col items-center flex-1`}>
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black transition-all shadow-md ${isCurrent ? 'bg-[#5A5A40] text-white ring-4 ring-[#5A5A40]/20' :
+                            isActive ? 'bg-[#5A5A40] text-white' :
+                              'bg-white/40 text-[#2c2c2c]/20 border border-white/40'
+                            }`}>
+                            {isActive ? '✓' : i + 1}
+                          </div>
+                          <span className={`text-[10px] mt-1.5 font-bold uppercase tracking-tighter ${isCurrent ? 'text-[#5A5A40]' : isActive ? 'text-[#2c2c2c]/60' : 'text-[#2c2c2c]/20'}`}>{step.label}</span>
+                        </div>
+                        {i < arr.length - 1 && (
+                          <div className={`h-1 flex-1 mt-[-24px] rounded-full ${stepIdx < currentIdx ? 'bg-[#5A5A40]' : 'bg-white/20'}`} />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="px-6 py-4 space-y-3">
+                <div className="flex flex-wrap gap-3 text-xs">
+                  {(m as any).plan && (
+                    <div className="bg-[#5A5A40]/5 rounded-lg px-3 py-1.5">
+                      <span className="text-[#2c2c2c]/40">方案：</span>
+                      <span className="font-bold text-[#5A5A40]">¥{(m as any).plan}</span>
+                    </div>
+                  )}
+                  {m.event_date && (
+                    <div className="bg-[#f5f5f0] rounded-lg px-3 py-1.5">
+                      <span className="text-[#2c2c2c]/40">日期：</span>
+                      <span className="font-medium text-[#2c2c2c]">{m.event_date}</span>
+                    </div>
+                  )}
+                  <div className="bg-[#f5f5f0] rounded-lg px-3 py-1.5">
+                    <span className="text-[#2c2c2c]/40">类型：</span>
+                    <span className="font-medium text-[#2c2c2c]">{m.type === 'festival' ? '节日祭祀' : '个人追思'}</span>
+                  </div>
+                </div>
+
+                <p className="text-sm text-[#2c2c2c]/70 whitespace-pre-wrap bg-[#f5f5f0]/50 rounded-xl p-3">{m.message}</p>
+
+                {(m as any).progress_images && (m as any).progress_images.length > 0 && (
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200/50">
+                    <span className="text-[10px] text-blue-700 font-bold block mb-2">📸 管理员提交的进度图片</span>
+                    <div className="flex flex-wrap gap-2">
+                      {(m as any).progress_images.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">查看图片{i + 1}</a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {m.status === 'completed' && (m.completion_images || m.completion_remarks) && (
+                  <div className="bg-green-50 rounded-xl p-4 border border-green-200/50">
+                    <span className="text-[10px] text-green-700 font-bold block mb-2">✅ 已完成</span>
+                    {m.completion_remarks && <p className="text-xs text-green-800">📝 {m.completion_remarks}</p>}
+                    {m.completion_images && <p className="text-xs text-green-800 mt-1">📸 <a href={m.completion_images} target="_blank" rel="noreferrer" className="underline">查看实拍</a></p>}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-3 bg-[#f5f5f0]/50 border-t border-[#2c2c2c]/5 flex gap-2">
+                {m.status === 'pending_payment' && (
+                  <button onClick={() => { setPendingMemorialId(m.id); setPaymentModalOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#5A5A40] text-white rounded-xl text-xs font-medium hover:bg-[#4a4a35] transition-colors shadow-sm">
+                    <QrCode className="w-3.5 h-3.5" /> 立即支付
+                  </button>
+                )}
+                {m.status === 'pending_acceptance' && (
+                  pendingAcceptId === m.id ? (
+                    <div className="flex items-center gap-2">
+                      <button onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/memorials/${m.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', completed_at: new Date().toISOString() }) });
+                          if (res.updated === 0) {
+                            await fetch(`/api/memorials/${m.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed', completed_at: new Date().toISOString() })
+      });
+                          }
+                        } catch (e) {
+                          console.error('验收失败:', e);
+                          alert('验收失败: ' + (e.message || e));
+                        }
+                        setPendingAcceptId(null);
+                      }} className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-medium hover:bg-green-700 transition-colors shadow-sm">
+                        <CheckCircle className="w-3.5 h-3.5" /> 确认完成
+                      </button>
+                      <button onClick={() => setPendingAcceptId(null)} className="px-3 py-2 text-xs text-[#2c2c2c]/50 hover:bg-[#f5f5f0] rounded-xl transition-colors">
+                        取消
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setPendingAcceptId(m.id)} className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-medium hover:bg-green-700 transition-colors shadow-sm">
+                      <CheckCircle className="w-3.5 h-3.5" /> 确认验收
+                    </button>
+                  )
+                )}
+                <button onClick={() => setInlineChatMemorial(m)} className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#5A5A40] border border-[#5A5A40]/20 rounded-xl text-xs font-medium hover:bg-[#5A5A40]/5 transition-colors">
+                  <MessageCircle className="w-3.5 h-3.5" /> 联系管理员
+                </button>
+              </div>
+            </motion.div>
+          ))
+        )}
+      </>
+    );
+  };
+
+  return (
+    <motion.div
+      key="main"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      className="min-h-screen font-sans text-[#2c2c2c] relative bg-cover bg-center bg-fixed"
+      style={{ backgroundImage: `url('/cover-bg.jpg')` }}
+    >
+      <div className="absolute inset-0 bg-[#f5f5f0]/85 backdrop-blur-xl transition-colors duration-1000" />
+      <div className="relative z-10 min-h-screen flex flex-col">
+        <header className="sticky top-0 z-50 w-full px-4 py-3 bg-white/20 backdrop-blur-xl border-b border-white/30 shadow-sm">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-8 flex-1 w-full md:w-auto">
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-lg">
+                  <Flower2 className="w-5 h-5 text-[#5A5A40]" />
+                </div>
+                <h1 className="text-xl font-serif font-bold tracking-wider text-[#5A5A40]">云端追思</h1>
+              </div>
+
+              {currentUser.role !== 'admin' && (
+                <div className="hidden md:flex flex-1 max-w-sm bg-white/40 backdrop-blur-md rounded-2xl p-3 border border-white/40 items-center justify-between shadow-sm relative group cursor-pointer hover:bg-white/60 transition-all z-50">
+                  <div>
+                    <h3 className="text-[11px] font-serif font-bold text-[#5A5A40]/70 mb-0.5">追思记录</h3>
+                    {userMemorials.length > 0 ? (
+                      <div className="flex flex-col">
+                        <p className="text-xs text-[#2c2c2c]/80">
+                          已经追思 <span className="font-bold text-[#5A5A40] text-sm">{userMemorials[userMemorials.length - 1].created_at ? differenceInDays(new Date(), new Date(userMemorials[userMemorials.length - 1].created_at)) : 0}</span> 天...
+                        </p>
+                        <p className="text-[10px] text-[#5A5A40] mt-0.5 font-medium truncate max-w-[200px]">
+                          最新：{userMemorials[0].name || (userMemorials[0].type === 'festival' ? '节日祭祀' : '个人追思')}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-[#2c2c2c]/50">您还没有发布过追思</p>
+                    )}
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-[#5A5A40]/10 flex items-center justify-center shrink-0 group-hover:bg-[#5A5A40] transition-colors">
+                    <Clock className="w-4 h-4 text-[#5A5A40] group-hover:text-white transition-colors" />
+                  </div>
+
+                  {/* Dropdown containing historical records */}
+                  <div className="absolute top-[calc(100%+0.5rem)] left-0 w-[450px] bg-white/95 backdrop-blur-xl rounded-3xl border border-[#2c2c2c]/10 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 overflow-hidden flex flex-col max-h-[70vh] cursor-default">
+                    <div className="px-5 py-4 border-b border-[#2c2c2c]/5 bg-[#f5f5f0]/50 flex items-center justify-between shrink-0">
+                      <span className="font-bold text-[#5A5A40] text-sm">历史追思记录</span>
+                      <span className="text-[10px] text-[#2c2c2c]/40 font-medium bg-white px-2 py-1 rounded-md border border-[#2c2c2c]/5 shadow-sm">共 {userMemorials.length} 条</span>
+                    </div>
+                    <div className="overflow-y-auto p-5 space-y-4 bg-[#f5f5f0]/30">
+                      {renderUserOrderTrackingView()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end">
+              <div className="relative group/user-menu">
+                {/* Trigger */}
+                <div className="flex items-center gap-2 bg-white/40 backdrop-blur-md pl-1.5 pr-4 py-1.5 rounded-full border border-white/40 shadow-sm cursor-pointer hover:bg-white/60 transition-all">
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-[#5A5A40]/20 flex items-center justify-center bg-[#5A5A40]/5 shrink-0">
+                    {currentUser.avatar ? (
+                      <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-4 h-4 text-[#5A5A40]" />
+                    )}
+                  </div>
+                  <span className="text-sm text-[#5A5A40] font-bold">{currentUser.name}</span>
+                </div>
+
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 top-full mt-2 w-48 opacity-0 invisible group-hover/user-menu:opacity-100 group-hover/user-menu:visible transition-all duration-300 origin-top-right z-50">
+                  <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden flex flex-col p-2">
+                    <div className="px-3 py-2 border-b border-[#2c2c2c]/5 mb-1">
+                      <p className="text-[10px] text-[#2c2c2c]/40 font-bold uppercase tracking-widest mb-1">{currentUser.role === 'admin' ? '管理员' : '普通用户'}</p>
+                      <p className="text-sm font-bold text-[#5A5A40] truncate">{currentUser.name}</p>
+                    </div>
+
+                    <button
+                      onClick={() => setIsProfileModalOpen(true)}
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-[#2c2c2c] hover:bg-[#5A5A40]/5 rounded-xl transition-colors text-left font-medium"
+                    >
+                      {currentUser.role === 'admin' ? <Shield className="w-4 h-4 text-[#5A5A40]" /> : <User className="w-4 h-4 text-[#5A5A40]" />}
+                      {currentUser.role === 'admin' ? '管理中心' : '个人资料设置'}
+                    </button>
+
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left mt-1 font-medium"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      退出登录
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 flex flex-col gap-6">
+              <div className="bg-white/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white/50 flex flex-col h-[800px] group transition-all hover:bg-white/50">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#2c2c2c]/5">
+                  <div className="flex items-center gap-2">
+                    <Flower2 className="w-6 h-6 text-[#5A5A40]" />
+                    <h2 className="text-xl font-serif font-semibold text-[#2c2c2c]">追思圈</h2>
+                  </div>
+                  <div className="flex-1 ml-8 overflow-hidden">
+                    <div className="whitespace-nowrap animate-marquee text-sm text-[#5A5A40] font-medium">
+                      清明节将至，倡导文明祭扫，云端寄哀思。中元节即将到来，愿逝者安息，生者坚强。
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="flex gap-4 py-5 animate-pulse">
+                          <div className="w-12 h-12 rounded-xl bg-black/5 shrink-0" />
+                          <div className="flex-1 space-y-3">
+                            <div className="w-24 h-4 bg-black/5 rounded" />
+                            <div className="w-full h-16 bg-black/5 rounded-xl" />
+                            <div className="w-16 h-3 bg-black/5 rounded" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : forumPosts.length === 0 ? (
+                    <p className="text-center text-[#2c2c2c]/60 py-10">还没有人发过动态，来分享你的思念吧...</p>
+                  ) : (
+                    forumPosts.map((post) => renderForumPostCard(post))
+                  )}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-[#2c2c2c]/5 flex flex-col gap-4">
+                  <form onSubmit={handleForumSubmit} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={forumInput}
+                      onChange={(e) => setForumInput(e.target.value)}
+                      placeholder="分享你的思念..."
+                      className="flex-1 bg-[#f5f5f0] border-none rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-[#5A5A40]/50 outline-none transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!forumInput.trim() || isForumSubmitting}
+                      className="px-6 bg-[#5A5A40] text-white rounded-xl hover:bg-[#4a4a35] transition-colors disabled:opacity-50 font-medium"
+                    >
+                      {isForumSubmitting ? '发送中...' : '发送'}
+                    </button>
+                  </form>
+                  <div className="bg-[#5A5A40]/5 rounded-xl h-10 flex items-center px-4 overflow-hidden relative shadow-inner">
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={knowledgeIndex}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -15 }}
+                        transition={{ duration: 0.5 }}
+                        className="absolute inset-x-4 whitespace-nowrap text-[13px] text-[#5A5A40]/90 font-medium flex items-center"
+                      >
+                        <span className="font-bold mr-2 text-[#5A5A40] shrink-0">✨ 道教常识：</span>
+                        <span className="truncate">{TAOIST_KNOWLEDGE[knowledgeIndex]}</span>
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-1 flex flex-col gap-6 sticky top-24 h-fit">
+              <div className="bg-white/40 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/50 flex flex-col h-[600px] overflow-hidden group transition-all hover:bg-white/50">
+                <div className="px-6 py-4 border-b border-[#2c2c2c]/5 bg-[#f5f5f0]/50 shrink-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-[#5A5A40]/10 flex items-center justify-center">
+                      {aiCharacter ? <span className="text-lg">{aiCharacter.name?.[0] || '👤'}</span> : <User className="w-5 h-5 text-[#5A5A40]" />}
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-serif font-black text-[#5A5A40] tracking-tight">{aiCharacter ? `与 「${aiCharacter.name}」 对话` : '与去世亲人聊天'}</h2>
+                      <p className="text-[10px] text-[#5A5A40]/40 font-bold uppercase tracking-widest">{aiCharacter ? 'AI 扮演您的亲人与您对话' : '请先选择一位亲人'}</p>
+                    </div>
+                  </div>
+                  {/* Character Selector */}
+                  {(() => {
+                    const personMemorials = userMemorials.filter(m => m.type === 'person');
+                    if (personMemorials.length === 0) return null;
+                    return (
+                      <select
+                        value={aiCharacter?.id || ''}
+                        onChange={(e) => {
+                          const selected = personMemorials.find(m => m.id === e.target.value);
+                          setAiCharacter(selected || null);
+                          setAiMessages(selected ? [{ id: '1', role: 'ai', content: `你好啊。我是${selected.name}，你的${(selected as any).relation || '亲人'}。很高兴能和你说说话，有什么想对我说的吗？` }] : []);
+                        }}
+                        className="w-full bg-white/60 border border-white/40 rounded-xl px-4 py-2.5 text-xs font-bold text-[#5A5A40] outline-none focus:ring-2 focus:ring-[#5A5A40]/20 transition-all shadow-sm"
+                      >
+                        <option value="">请选择您想对话的亲人...</option>
+                        {personMemorials.map(m => (
+                          <option key={m.id} value={m.id}>{m.name}{(m as any).relation ? ` - ${(m as any).relation}` : ''}</option>
+                        ))}
+                      </select>
+                    );
+                  })()}
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#f5f5f0]/30">
+                  {!aiCharacter && aiMessages.length === 0 ? (
+                    <div className="text-center py-16 flex flex-col items-center justify-center">
+                      <div className="w-20 h-20 bg-[#5A5A40]/5 rounded-full flex items-center justify-center mb-4 border border-[#5A5A40]/10">
+                        <MessageCircle className="w-10 h-10 text-[#5A5A40]/30" />
+                      </div>
+                      <p className="text-[#5A5A40] font-bold text-lg mb-2">开启跨越时空的对话</p>
+                      <p className="text-[#2c2c2c]/50 text-sm max-w-[200px] mb-6">请先在上方选择亲人。若暂无记录，请先发布您的第一条追思。</p>
+                      <button 
+                        onClick={() => {
+                          setPublishType('person');
+                          setIsPublishModalOpen(true);
+                        }}
+                        className="px-6 py-2.5 bg-white border border-[#5A5A40]/20 text-[#5A5A40] rounded-xl text-sm font-bold shadow-sm hover:bg-[#5A5A40]/5 transition-all flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" /> 去发布追思
+                      </button>
+                    </div>
+                  ) : (
+                    aiMessages.map((msg) => (
+                      <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
+                          ? 'bg-[#5A5A40] text-white rounded-tr-sm shadow-sm'
+                          : 'bg-white text-[#2c2c2c] border border-[#2c2c2c]/5 rounded-tl-sm shadow-sm'
+                          }`}>
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {isAiTyping && (
+                    <div className="flex justify-start">
+                      <div className="bg-white border border-[#2c2c2c]/5 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex gap-1.5 items-center">
+                        <div className="w-1.5 h-1.5 bg-[#5A5A40]/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1.5 h-1.5 bg-[#5A5A40]/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1.5 h-1.5 bg-[#5A5A40]/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={aiMessagesEndRef} />
+                </div>
+
+                <div className="p-5 bg-white/20 border-t border-white/20 shrink-0">
+                  <form onSubmit={handleAiSubmit} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={aiInput}
+                      onChange={(e) => setAiInput(e.target.value)}
+                      placeholder="说点悄悄话..."
+                      className="flex-1 bg-white/60 border border-white/40 rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-[#5A5A40]/30 outline-none transition-all shadow-inner font-medium"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!aiInput.trim() || isAiTyping}
+                      className="p-3 bg-[#5A5A40] text-white rounded-2xl hover:bg-[#4a4a35] transition-all disabled:opacity-50 flex items-center justify-center shadow-lg active:scale-95"
+                    >
+                      <Send className="w-5 h-5" />
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsPublishModalOpen(true)}
+                className="hidden lg:flex w-full bg-gradient-to-r from-[#5A5A40] to-[#7a7a60] text-white py-5 rounded-[2rem] font-serif font-bold text-xl shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1.5 items-center justify-center gap-3 active:scale-95"
+              >
+                <Plus className="w-7 h-7" />
+                发布追思
+              </button>
+            </div>
+          </div>
+        </main>
+
+        {/* Mobile Floating Action Button */}
+        <button
+          onClick={() => setIsPublishModalOpen(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-40 bg-gradient-to-r from-[#5A5A40] to-[#7a7a60] text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center active:scale-95 hover:scale-105 transition-all"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {paymentModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/50 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-sm bg-white rounded-[32px] p-8 text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><QrCode className="w-8 h-8 text-green-600" /></div>
+              <h3 className="text-2xl font-serif font-bold mb-2">扫码支付</h3>
+              <p className="text-[#2c2c2c]/60 mb-8">请扫描下方二维码完成支付，支付成功后管理员将为您处理追思申请。</p>
+              <div className="bg-[#f5f5f0] aspect-square rounded-2xl mb-8 flex items-center justify-center border-2 border-dashed border-[#2c2c2c]/10"><QrCode className="w-32 h-32 text-[#5A5A40]/20" /></div>
+              <button onClick={handlePaymentComplete} className="w-full bg-[#5A5A40] text-white py-4 rounded-xl font-medium hover:bg-[#4a4a35] transition-colors">我已支付</button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {chatModalOpen && currentChatMemorial && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setChatModalOpen(false)} />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="relative w-full max-w-md bg-white rounded-[32px] overflow-hidden flex flex-col h-[80vh]">
+              <div className="px-6 py-4 border-b border-[#2c2c2c]/5 flex items-center justify-between bg-[#f5f5f0]/50">
+                <div><h3 className="font-serif font-bold">沟通详情</h3><p className="text-[10px] text-[#2c2c2c]/40">关于：{currentChatMemorial.name}</p></div>
+                <button onClick={() => setChatModalOpen(false)} className="p-2 hover:bg-black/5 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#f5f5f0]/30">
+                {messages.map((msg) => (
+                  <div key={msg.id} className={`flex flex-col ${msg.sender_id === currentUser?.id ? 'items-end' : 'items-start'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[8px] text-[#2c2c2c]/20">{formatTime(msg.created_at)}</span>
+                    </div>
+                    <div className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm ${msg.sender_id === currentUser?.id ? 'bg-[#5A5A40] text-white rounded-tr-none' : 'bg-white text-[#2c2c2c] shadow-sm rounded-tl-none'}`}>{msg.content}</div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-[#2c2c2c]/5 flex gap-2">
+                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="输入消息..." className="flex-1 bg-[#f5f5f0] border-none rounded-xl px-4 py-2 text-sm focus:ring-1 focus:ring-[#5A5A40] outline-none" />
+                <button type="submit" disabled={!newMessage.trim()} className="p-2 bg-[#5A5A40] text-white rounded-xl hover:bg-[#4a4a35] transition-colors disabled:opacity-50"><Send className="w-4 h-4" /></button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {completeModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCompleteModalOpen(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-md bg-white rounded-[32px] p-8">
+              <h3 className="text-2xl font-serif font-bold mb-6">完成追思服务</h3>
+              <form onSubmit={handleCompleteOrder} className="space-y-4">
+                <div><label className="block text-xs font-medium text-[#2c2c2c]/40 mb-1">完成时间</label><input type="datetime-local" required value={completeData.time} onChange={(e) => setCompleteData({ ...completeData, time: e.target.value })} className="w-full px-4 py-2 rounded-xl border border-[#2c2c2c]/10 outline-none bg-[#f5f5f0]/50" /></div>
+                <div><label className="block text-xs font-medium text-[#2c2c2c]/40 mb-1">完成地点</label><input type="text" required value={completeData.location} onChange={(e) => setCompleteData({ ...completeData, location: e.target.value })} className="w-full px-4 py-2 rounded-xl border border-[#2c2c2c]/10 outline-none bg-[#f5f5f0]/50" placeholder="如：XX公墓" /></div>
+                <div><label className="block text-xs font-medium text-[#2c2c2c]/40 mb-1">现场照片 (链接)</label><input type="url" value={completeData.images} onChange={(e) => setCompleteData({ ...completeData, images: e.target.value })} className="w-full px-4 py-2 rounded-xl border border-[#2c2c2c]/10 outline-none bg-[#f5f5f0]/50" placeholder="https://..." /></div>
+                <div><label className="block text-xs font-medium text-[#2c2c2c]/40 mb-1">备注说明</label><textarea value={completeData.remarks} onChange={(e) => setCompleteData({ ...completeData, remarks: e.target.value })} className="w-full px-4 py-2 rounded-xl border border-[#2c2c2c]/10 outline-none bg-[#f5f5f0]/50 resize-none" rows={3} /></div>
+                <button type="submit" className="w-full bg-[#5A5A40] text-white py-4 rounded-xl font-medium hover:bg-[#4a4a35] transition-colors mt-4">确认完成</button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isProfileModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsProfileModalOpen(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className={`relative w-full ${currentUser?.role === 'admin' ? 'max-w-4xl' : 'max-w-2xl'} bg-white/60 backdrop-blur-2xl rounded-[2.5rem] overflow-hidden flex flex-col max-h-[85vh] shadow-2xl border border-white/50`}>
+              <div className="px-8 py-6 border-b border-white/20 bg-white/20 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#5A5A40]/10 flex items-center justify-center">
+                    {currentUser?.role === 'admin' ? <Shield className="w-5 h-5 text-[#5A5A40]" /> : (currentUser?.avatar ? <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-[#5A5A40]" />)}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-serif font-bold text-[#2c2c2c]">{currentUser?.role === 'admin' ? '订单管理中心' : '个人中心'}</h3>
+                    <p className="text-sm text-[#2c2c2c]/60">{currentUser?.role === 'admin' ? '审核订单・确认付费・对接用户・跟踪进度' : '您的历史追思记录'}</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsProfileModalOpen(false)} className="p-2 hover:bg-white/40 rounded-full transition-colors"><X className="w-6 h-6 text-[#2c2c2c]/40" /></button>
+              </div>
+
+              {/* Admin: Status filter tabs */}
+              {currentUser?.role === 'admin' && (
+                <div className="px-8 pt-4 pb-2 bg-white/10 border-b border-white/20 shrink-0 flex gap-2 flex-wrap">
+                  {[
+                    { key: 'all' as const, label: '全部', count: adminMemorials.length },
+                    { key: 'pending_payment' as const, label: '💰 待付费', count: adminMemorials.filter(m => m.status === 'pending_payment').length },
+                    { key: 'pending_order' as const, label: '📋 待审核', count: adminMemorials.filter(m => m.status === 'pending_order').length },
+                    { key: 'accepted' as const, label: '✅ 已接单', count: adminMemorials.filter(m => m.status === 'accepted').length },
+                    { key: 'in_progress' as const, label: '🔄 进行中', count: adminMemorials.filter(m => m.status === 'in_progress').length },
+                    { key: 'pending_acceptance' as const, label: '👁️ 待验收', count: adminMemorials.filter(m => m.status === 'pending_acceptance').length },
+                    { key: 'completed' as const, label: '✔️ 已完成', count: adminMemorials.filter(m => m.status === 'completed').length },
+                  ].map(tab => (
+                    <button key={tab.key} onClick={() => setAdminFilter(tab.key)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${adminFilter === tab.key ? 'bg-[#5A5A40] text-white shadow-lg scale-105' : 'bg-white/40 text-[#5A5A40]/60 hover:bg-white/60 hover:text-[#5A5A40]'
+                        }`}>
+                      {tab.label} {tab.count > 0 && <span className="ml-1 opacity-70">({tab.count})</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {currentUser?.role === 'admin' ? (
+                  /* ========= ADMIN ORDER MANAGEMENT VIEW ========= */
+                  (() => {
+                    const filtered = adminFilter === 'all' ? adminMemorials : adminMemorials.filter(m => m.status === adminFilter);
+                    if (filtered.length === 0) return (
+                      <div className="text-center py-20">
+                        <Flower2 className="w-12 h-12 text-[#5A5A40]/20 mx-auto mb-4" />
+                        <p className="text-[#2c2c2c]/60">当前筛选条件下暂无订单</p>
+                      </div>
+                    );
+                    return filtered.map(m => (
+                      <motion.div key={m.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white/40 backdrop-blur-md rounded-[2rem] border border-white/60 overflow-hidden shadow-xl mb-4 transition-all hover:bg-white/60">
+                        {/* Order Header */}
+                        <div className="px-6 py-4 flex items-center justify-between border-b border-[#2c2c2c]/5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-[#5A5A40]/10 flex items-center justify-center text-[#5A5A40] font-bold text-sm">{m.author_name?.[0] || '用'}</div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm text-[#2c2c2c]">{m.author_name || '匿名用户'}</span>
+                                <span className="text-[10px] text-[#2c2c2c]/30">ID: {m.author_id?.slice(0, 8)}...</span>
+                              </div>
+                              <span className="text-xs text-[#2c2c2c]/40">{formatTime(m.created_at)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${m.status === 'completed' ? 'bg-green-100 text-green-700' :
+                              m.status === 'pending_acceptance' ? 'bg-purple-100 text-purple-700' :
+                                m.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                  m.status === 'accepted' ? 'bg-indigo-100 text-indigo-700' :
+                                    m.status === 'pending_order' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-gray-100 text-gray-600'
+                              }`}>
+                              {m.status === 'completed' ? '✔ 已完成' :
+                                m.status === 'pending_acceptance' ? '👁 待验收' :
+                                  m.status === 'in_progress' ? '🔄 进行中' :
+                                    m.status === 'accepted' ? '✅ 已接单' :
+                                      m.status === 'pending_order' ? '📋 待审核' : '💰 待付费'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Order Body */}
