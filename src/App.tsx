@@ -80,7 +80,7 @@ const isQingmingPeriod = () => {
 };
 
 
-const UserProfileSettings = ({ currentUser, setCurrentUser }: any) => {
+const UserProfileSettings = ({ currentUser, setCurrentUser, setRefreshTrigger }: any) => {
   const [name, setName] = React.useState(currentUser?.name || '');
   const [avatar, setAvatar] = React.useState(currentUser?.avatar || '');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -2016,7 +2016,7 @@ setRefreshTrigger(prev => prev + 1); } catch (e) { console.error(e); } }} classN
                   })()
                 ) : (
                   /* ========= USER PROFILE VIEW ========= */
-                  <UserProfileSettings currentUser={currentUser} setCurrentUser={setCurrentUser} />
+                  <UserProfileSettings currentUser={currentUser} setCurrentUser={setCurrentUser} setRefreshTrigger={setRefreshTrigger} />
                 )}
               </div>
             </motion.div>
