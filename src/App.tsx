@@ -888,7 +888,11 @@ setRefreshTrigger(prev => prev + 1);
 
   const formatTime = (timestamp: any) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    let tsStr = timestamp;
+    if (typeof tsStr === 'string' && !tsStr.endsWith('Z') && !tsStr.includes('+')) {
+      tsStr = tsStr.replace(' ', 'T') + 'Z';
+    }
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(tsStr);
     return formatDistanceToNow(date, { addSuffix: true, locale: zhCN });
   };
 
