@@ -165,7 +165,7 @@ setRefreshTrigger(prev => prev + 1);
       <button
         onClick={handleSave}
         disabled={isSubmitting}
-        className="w-full bg-[#5A5A40] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-[#4a4a35] transition-all hover:-translate-y-0.5 disabled:opacity-50 flex items-center justify-center gap-2"
+        className="w-full bg-[#5A5A40] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-[#4a4a35] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
         保存个人资料
@@ -361,6 +361,7 @@ export default function App() {
 
   // Modals state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [publishType, setPublishType] = useState<'person' | 'festival'>('person');
   const [adminFilter, setAdminFilter] = useState<'all' | 'pending_payment' | 'pending_order' | 'accepted' | 'in_progress' | 'pending_acceptance' | 'completed'>('all');
@@ -1533,7 +1534,7 @@ setRefreshTrigger(prev => prev + 1);
             <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end">
               <div className="relative group/user-menu">
                 {/* Trigger */}
-                <div className="flex items-center gap-2 bg-white/40 backdrop-blur-md pl-1.5 pr-4 py-1.5 rounded-full border border-white/40 shadow-sm cursor-pointer hover:bg-white/60 transition-all">
+                <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} onBlur={() => setTimeout(() => setIsUserMenuOpen(false), 200)} className="flex items-center gap-2 bg-white/40 backdrop-blur-md pl-1.5 pr-4 py-1.5 rounded-full border border-white/40 shadow-sm cursor-pointer hover:bg-white/60 transition-all outline-none">
                   <div className="w-8 h-8 rounded-full overflow-hidden border border-[#5A5A40]/20 flex items-center justify-center bg-[#5A5A40]/5 shrink-0">
                     {currentUser.avatar ? (
                       <img src={currentUser.avatar} alt="avatar" className="w-full h-full object-cover" />
@@ -1542,10 +1543,10 @@ setRefreshTrigger(prev => prev + 1);
                     )}
                   </div>
                   <span className="text-sm text-[#5A5A40] font-bold">{currentUser.name}</span>
-                </div>
+                </button>
 
                 {/* Dropdown Menu */}
-                <div className="absolute right-0 top-full mt-2 w-48 opacity-0 invisible group-hover/user-menu:opacity-100 group-hover/user-menu:visible transition-all duration-300 origin-top-right z-50">
+                <div className={`absolute right-0 top-full mt-2 w-48 transition-all duration-300 origin-top-right z-50 ${isUserMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible md:group-hover/user-menu:opacity-100 md:group-hover/user-menu:visible'}`}>
                   <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden flex flex-col p-2">
                     <div className="px-3 py-2 border-b border-[#2c2c2c]/5 mb-1">
                       <p className="text-[10px] text-[#2c2c2c]/40 font-bold uppercase tracking-widest mb-1">{currentUser.role === 'admin' ? '管理员' : '普通用户'}</p>
