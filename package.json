@@ -9,8 +9,8 @@
     "preview": "vite preview --config client/vite.config.ts client",
     "clean": "rimraf client/dist",
     "lint": "tsc --project client/tsconfig.json --noEmit",
-    "deploy": "cd server && wrangler pages deploy",
-    "dev:server": "cd server && wrangler pages dev ../client/dist"
+    "deploy": "wrangler pages deploy",
+    "dev:server": "wrangler pages dev client/dist"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
