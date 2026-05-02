@@ -658,11 +658,10 @@ ${charMsg}
 请以${charName}的第一人称角度回复，语气符合一位${charRelation || '长辈'}的身份。语气要温柔、慈爱、平和。
 不要反复提及“我已经离开”或“我在天堂”等话，而是像一位${charRelation || '亲人'}一样自然地关心家人、回忆往事、表达爱意。
 回复要简洁温暖（1-3句），使用中文。`;
-      const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-djyjodjomhmnurhyjtnkscvzwwwuapitjnaxxycaseeqtdsb'
         },
         body: JSON.stringify({
           model: 'Qwen/Qwen2.5-7B-Instruct',

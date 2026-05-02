@@ -234,4 +234,33 @@ app.post('/messages', async (c) => {
   return c.json({ id });
 });
 
+// AI Chat Proxy (keeps API key on server side)
+app.post('/ai/chat', async (c) => {
+  const env = c.env as any;
+  const apiKey = env.SILICONFLOW_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: 'AI service not configured' }, 500);
+  }
+
+  const body = await c.req.json();
+  const { messages, model, max_tokens, temperature } = body;
+
+  const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model || 'Qwen/Qwen2.5-7B-Instruct',
+      messages,
+      max_tokens: max_tokens || 512,
+      temperature: temperature ?? 0.7
+    })
+  });
+
+  const data = await response.json() as any;
+  return c.json(data);
+});
+
 export const onRequest = handle(app);
